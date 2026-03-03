@@ -16,6 +16,7 @@ import org.fossify.commons.interfaces.RefreshRecyclerViewListener
 import org.fossify.commons.views.MyRecyclerView
 import org.fossify.home.R
 import org.fossify.home.databinding.ItemHiddenIconBinding
+import org.fossify.home.extensions.config
 import org.fossify.home.extensions.hiddenIconsDB
 import org.fossify.home.models.HiddenIcon
 
@@ -28,9 +29,10 @@ class HiddenIconsAdapter(
 ) : MyRecyclerViewAdapter(activity, recyclerView, itemClick) {
 
     private var iconPadding = 0
+    private var iconSize = 0
 
     init {
-        calculateIconWidth()
+        calculateIconSize()
         setupDragListener(true)
     }
 
@@ -89,7 +91,7 @@ class HiddenIconsAdapter(
         }
     }
 
-    private fun calculateIconWidth() {
+    private fun calculateIconSize() {
         val currentColumnCount = activity.resources.getInteger(
             if (activity.portrait) {
                 R.integer.portrait_column_count
@@ -100,6 +102,9 @@ class HiddenIconsAdapter(
 
         val iconWidth = activity.realScreenSize.x / currentColumnCount
         iconPadding = (iconWidth * 0.1f).toInt()
+        
+        val defaultIconSize = activity.resources.getDimensionPixelSize(R.dimen.launcher_icon_size)
+        iconSize = (defaultIconSize * (activity.config.iconSize / 100f) * 0.90f).toInt()
     }
 
     private fun setupView(view: View, icon: HiddenIcon) {
@@ -108,6 +113,7 @@ class HiddenIconsAdapter(
             hiddenIconLabel.text = icon.title
             hiddenIconLabel.setTextColor(textColor)
             hiddenIcon.setPadding(iconPadding, iconPadding, iconPadding, 0)
+            hiddenIcon.layoutParams.height = iconSize
 
             val factory = DrawableCrossFadeFactory.Builder(150).setCrossFadeEnabled(true).build()
 

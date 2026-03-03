@@ -16,6 +16,7 @@ import org.fossify.commons.helpers.isQPlus
 import org.fossify.commons.helpers.isSPlus
 import org.fossify.home.databases.AppsDatabase
 import org.fossify.home.helpers.Config
+import org.fossify.home.helpers.IconPackHelper
 import org.fossify.home.interfaces.AppLaunchersDao
 import org.fossify.home.interfaces.HiddenIconsDao
 import org.fossify.home.interfaces.HomeScreenGridItemsDao
@@ -39,13 +40,51 @@ val Context.hiddenIconsDB: HiddenIconsDao
 val Context.roleManager: RoleManager
     get() = getSystemService(RoleManager::class.java)
 
-fun Context.getDrawableForPackageName(packageName: String): Drawable? {
+private var iconPackHelper: IconPackHelper? = null
+private var cachedIconPack = ""
+
+fun Context.getDrawableForPackageName(packageName: String, activityName: String = ""): Drawable? {
+    var resolvedActivityName = activityName
+    if (resolvedActivityName.isEmpty()) {
+        try {
+            val launcher = getSystemService(Context.LAUNCHER_APPS_SERVICE) as LauncherApps
+            val activityList = launcher.getActivityList(packageName, Process.myUserHandle())
+            if (activityList.isNotEmpty()) {
+                resolvedActivityName = activityList[0].componentName.className
+            }
+        } catch (ignored: Exception) {
+        }
+    }
+
+    val iconPack = config.iconPack
+    if (iconPack.isNotEmpty()) {
+        if (iconPackHelper == null || cachedIconPack != iconPack) {
+            iconPackHelper = IconPackHelper(this, iconPack)
+            cachedIconPack = iconPack
+        }
+        
+        val icon = iconPackHelper?.getIcon(packageName, resolvedActivityName)
+        if (icon != null) {
+            return icon
+        }
+    } else {
+        iconPackHelper = null
+        cachedIconPack = ""
+    }
+
     var drawable: Drawable? = null
     try {
         // try getting the properly colored launcher icons
         val launcher = getSystemService(Context.LAUNCHER_APPS_SERVICE) as LauncherApps
-        val activityList = launcher.getActivityList(packageName, Process.myUserHandle())[0]
-        drawable = activityList.getBadgedIcon(0)
+        val activityList = launcher.getActivityList(packageName, Process.myUserHandle())
+        if (activityList.isNotEmpty()) {
+            val activity = if (resolvedActivityName.isNotEmpty()) {
+                activityList.firstOrNull { it.componentName.className == resolvedActivityName } ?: activityList[0]
+            } else {
+                activityList[0]
+            }
+            drawable = activity.getBadgedIcon(0)
+        }
     } catch (e: Exception) {
     } catch (e: Error) {
     }

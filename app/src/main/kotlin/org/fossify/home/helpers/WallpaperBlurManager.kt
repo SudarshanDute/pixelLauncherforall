@@ -61,10 +61,17 @@ object WallpaperBlurManager {
                 // Directly manipulate flags and attributes for better consistency across versions
                 if (radius > 0) {
                     addFlags(WindowManager.LayoutParams.FLAG_BLUR_BEHIND)
-                    // Voodoo Fix: Add a tiny amount of dimming. On some OEMs (OnePlus/Oppo), 
-                    // this forces the window manager to create the necessary blur layers.
                     addFlags(WindowManager.LayoutParams.FLAG_DIM_BEHIND)
-                    params.dimAmount = 0.01f
+                    if (activity.windowManager.isCrossWindowBlurEnabled) {
+                        // Voodoo Fix: Add a tiny amount of dimming. On some OEMs (OnePlus/Oppo), 
+                        // this forces the window manager to create the necessary blur layers.
+                        params.dimAmount = 0.01f
+                    } else {
+                        // Fallback: If blur is disabled (e.g. OnePlus OxygenOS 15 bug or battery saver),
+                        // use dimming based on the requested radius to keep the background legible.
+                        // We scale the dim amount so it transitions smoothly with the radius animation.
+                        params.dimAmount = ((radius / 80f) * 0.5f).coerceIn(0f, 0.8f)
+                    }
                     
                     // Voodoo Fix: Setting alpha slightly below 1.0 can trigger transparency 
                     // compositions that enable blur on problematic hardware.

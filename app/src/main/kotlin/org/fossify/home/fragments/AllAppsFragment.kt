@@ -2,6 +2,7 @@ package org.fossify.home.fragments
 
 import android.annotation.SuppressLint
 import android.content.Context
+import android.graphics.Color
 import android.util.AttributeSet
 import android.view.MotionEvent
 import android.view.inputmethod.EditorInfo
@@ -197,6 +198,8 @@ class AllAppsFragment(
         binding.searchBar.requireToolbar().beGone()
         binding.searchBar.updateColors()
         binding.searchBar.setupMenu()
+        binding.searchBar.setBackgroundColor(Color.TRANSPARENT)
+        binding.searchBar.binding.topToolbarSearch.setBackgroundColor(Color.TRANSPARENT)
 
         binding.searchBar.onSearchTextChangedListener = {
             submitList(launchers)

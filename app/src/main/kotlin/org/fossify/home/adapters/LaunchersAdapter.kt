@@ -10,14 +10,10 @@ import androidx.recyclerview.widget.DiffUtil
 import androidx.recyclerview.widget.ListAdapter
 import androidx.recyclerview.widget.RecyclerView
 import com.bumptech.glide.Glide
-import com.bumptech.glide.load.engine.DiskCacheStrategy
-import com.bumptech.glide.request.target.DrawableImageViewTarget
-import com.bumptech.glide.request.transition.Transition
 import com.qtalk.recyclerviewfastscroller.RecyclerViewFastScroller
 import org.fossify.commons.extensions.beVisibleIf
 import org.fossify.commons.extensions.getColoredDrawableWithColor
 import org.fossify.commons.extensions.getProperTextColor
-import org.fossify.commons.extensions.realScreenSize
 import org.fossify.home.R
 import org.fossify.home.activities.SimpleActivity
 import org.fossify.home.databinding.ItemLauncherLabelBinding
@@ -34,11 +30,11 @@ class LaunchersAdapter(
     RecyclerViewFastScroller.OnPopupTextUpdate {
 
     private var textColor = activity.getProperTextColor()
-    private var iconPadding = 0
+    private var iconSize = 0
 
     init {
         setHasStableIds(true)
-        calculateIconWidth()
+        calculateIconSize()
     }
 
     override fun getItemId(position: Int): Long {
@@ -55,7 +51,9 @@ class LaunchersAdapter(
         val binding = ItemLauncherLabelBinding.inflate(
             LayoutInflater.from(parent.context), parent, false
         )
-        return ViewHolder(binding.root)
+        binding.launcherIcon.layoutParams.width = iconSize
+        binding.launcherIcon.layoutParams.height = iconSize
+        return ViewHolder(binding)
     }
 
     override fun onBindViewHolder(holder: ViewHolder, position: Int) {
@@ -63,14 +61,13 @@ class LaunchersAdapter(
     }
 
     override fun submitList(list: MutableList<AppLauncher>?) {
-        calculateIconWidth()
+        calculateIconSize()
         super.submitList(list)
     }
 
-    private fun calculateIconWidth() {
-        val currentColumnCount = activity.config.drawerColumnCount
-        val iconWidth = activity.realScreenSize.x / currentColumnCount
-        iconPadding = (iconWidth * 0.1f).toInt()
+    private fun calculateIconSize() {
+        val defaultIconSize = activity.resources.getDimensionPixelSize(R.dimen.launcher_icon_size)
+        iconSize = (defaultIconSize * (activity.config.iconSize / 100f) * 1.08f).toInt()
     }
 
     @SuppressLint("NotifyDataSetChanged")
@@ -81,36 +78,22 @@ class LaunchersAdapter(
         }
     }
 
-    inner class ViewHolder(view: View) : RecyclerView.ViewHolder(view) {
+    inner class ViewHolder(private val binding: ItemLauncherLabelBinding) : RecyclerView.ViewHolder(binding.root) {
         @SuppressLint("ClickableViewAccessibility")
-        fun bindView(launcher: AppLauncher): View {
-            val binding = ItemLauncherLabelBinding.bind(itemView)
+        fun bindView(launcher: AppLauncher) {
             itemView.apply {
                 binding.launcherLabel.text = launcher.title
-                binding.launcherLabel.setTextColor(textColor)
                 binding.launcherLabel.beVisibleIf(activity.config.showDrawerAppLabels)
-                binding.launcherIcon.setPadding(iconPadding, iconPadding, iconPadding, 0)
-
-                if (launcher.drawable != null && binding.launcherIcon.tag == true) {
+                
+                if (launcher.drawable != null) {
+                    Glide.with(activity).clear(binding.launcherIcon)
                     binding.launcherIcon.setImageDrawable(launcher.drawable)
                 } else {
                     val placeholderDrawable = activity.resources.getColoredDrawableWithColor(
                         drawableId = R.drawable.placeholder_drawable,
                         color = launcher.thumbnailColor
                     )
-                    Glide.with(activity)
-                        .load(launcher.drawable)
-                        .placeholder(placeholderDrawable)
-                        .diskCacheStrategy(DiskCacheStrategy.RESOURCE)
-                        .into(object : DrawableImageViewTarget(binding.launcherIcon) {
-                            override fun onResourceReady(
-                                resource: Drawable,
-                                transition: Transition<in Drawable>?
-                            ) {
-                                super.onResourceReady(resource, transition)
-                                view.tag = true
-                            }
-                        })
+                    binding.launcherIcon.setImageDrawable(placeholderDrawable)
                 }
 
                 setOnClickListener { itemClick(launcher) }
@@ -128,7 +111,7 @@ class LaunchersAdapter(
                 setOnTouchListener { _, event ->
                     when (event.action) {
                         MotionEvent.ACTION_DOWN -> {
-                            binding.launcherIcon.drawable.alpha = LAUNCHER_ALPHA_PRESSED
+                            binding.launcherIcon.drawable?.alpha = LAUNCHER_ALPHA_PRESSED
                             animateScale(
                                 from = LAUNCHER_SCALE_NORMAL,
                                 to = LAUNCHER_SCALE_PRESSED,
@@ -138,7 +121,7 @@ class LaunchersAdapter(
 
                         MotionEvent.ACTION_UP,
                         MotionEvent.ACTION_CANCEL -> {
-                            binding.launcherIcon.drawable.alpha = LAUNCHER_ALPHA_NORMAL
+                            binding.launcherIcon.drawable?.alpha = LAUNCHER_ALPHA_NORMAL
                             animateScale(
                                 from = LAUNCHER_SCALE_PRESSED,
                                 to = LAUNCHER_SCALE_NORMAL,
@@ -149,8 +132,6 @@ class LaunchersAdapter(
                     false
                 }
             }
-
-            return itemView
         }
     }
 
@@ -168,15 +149,13 @@ class LaunchersAdapter(
 
 private class AppLauncherDiffCallback : DiffUtil.ItemCallback<AppLauncher>() {
     override fun areItemsTheSame(oldItem: AppLauncher, newItem: AppLauncher): Boolean {
-        return oldItem.getLauncherIdentifier().hashCode().toLong() ==
-                newItem.getLauncherIdentifier().hashCode().toLong()
+        return oldItem.getLauncherIdentifier() == newItem.getLauncherIdentifier()
     }
 
     override fun areContentsTheSame(oldItem: AppLauncher, newItem: AppLauncher): Boolean {
         return oldItem.title == newItem.title &&
                 oldItem.order == newItem.order &&
                 oldItem.thumbnailColor == newItem.thumbnailColor &&
-                oldItem.drawable != null &&
-                newItem.drawable != null
+                (oldItem.drawable == null) == (newItem.drawable == null)
     }
 }

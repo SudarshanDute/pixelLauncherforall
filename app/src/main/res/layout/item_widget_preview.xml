@@ -1,46 +1,58 @@
 <?xml version="1.0" encoding="utf-8"?>
-<RelativeLayout xmlns:android="http://schemas.android.com/apk/res/android"
+<com.google.android.material.card.MaterialCardView xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
     xmlns:tools="http://schemas.android.com/tools"
     android:id="@+id/widget_preview_holder"
     android:layout_width="wrap_content"
     android:layout_height="wrap_content"
-    android:paddingBottom="@dimen/activity_margin">
+    android:layout_marginEnd="12dp"
+    android:layout_marginBottom="12dp"
+    android:minWidth="140dp"
+    app:cardBackgroundColor="?attr/colorSurfaceContainer"
+    app:cardCornerRadius="16dp"
+    app:cardElevation="0dp">
 
-    <ImageView
-        android:id="@+id/widget_image"
-        android:layout_width="@dimen/widget_preview_size"
-        android:layout_height="@dimen/widget_preview_size"
-        android:layout_gravity="center"
-        android:adjustViewBounds="true"
-        android:background="@drawable/widget_preview_background"
-        android:padding="@dimen/normal_margin"
-        android:scaleType="centerInside"
-        tools:src="@mipmap/ic_launcher" />
-
-    <org.fossify.commons.views.MyTextView
-        android:id="@+id/widget_title"
-        android:layout_width="wrap_content"
+    <LinearLayout
+        android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:layout_below="@+id/widget_image"
-        android:layout_alignStart="@+id/widget_image"
-        android:layout_alignEnd="@+id/widget_image"
-        android:layout_marginTop="@dimen/small_margin"
-        android:ellipsize="end"
-        android:lines="1"
-        android:textSize="@dimen/smaller_text_size"
-        tools:text="Calendar" />
+        android:gravity="center_horizontal"
+        android:orientation="vertical"
+        android:padding="16dp">
 
-    <org.fossify.commons.views.MyTextView
-        android:id="@+id/widget_size"
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:layout_below="@+id/widget_title"
-        android:layout_alignStart="@+id/widget_image"
-        android:layout_alignEnd="@+id/widget_image"
-        android:alpha="0.5"
-        android:ellipsize="end"
-        android:lines="1"
-        android:textSize="@dimen/smaller_text_size"
-        tools:text="1 x 1" />
+        <com.google.android.material.textview.MaterialTextView
+            android:id="@+id/widget_title"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:ellipsize="end"
+            android:gravity="center"
+            android:lines="1"
+            android:textAppearance="?attr/textAppearanceTitleMedium"
+            tools:text="Calendar" />
 
-</RelativeLayout>
+        <ImageView
+            android:id="@+id/widget_image"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:minWidth="@dimen/widget_preview_size"
+            android:minHeight="@dimen/widget_preview_size"
+            android:maxHeight="200dp"
+            android:maxWidth="280dp"
+            android:layout_marginTop="12dp"
+            android:layout_marginBottom="12dp"
+            android:adjustViewBounds="true"
+            android:scaleType="centerInside"
+            tools:src="@mipmap/ic_launcher" />
+
+        <com.google.android.material.textview.MaterialTextView
+            android:id="@+id/widget_size"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:alpha="0.75"
+            android:ellipsize="end"
+            android:gravity="center"
+            android:lines="1"
+            android:textAppearance="?attr/textAppearanceBodyMedium"
+            tools:text="1 x 1" />
+
+    </LinearLayout>
+</com.google.android.material.card.MaterialCardView>

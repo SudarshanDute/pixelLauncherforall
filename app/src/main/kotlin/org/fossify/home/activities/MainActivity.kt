@@ -21,12 +21,14 @@ import android.graphics.Bitmap
 import android.graphics.Color
 import android.graphics.Rect
 import android.graphics.drawable.Drawable
+import android.os.Build
 import android.os.Bundle
 import android.os.Handler
 import android.os.Looper
 import android.provider.Settings
 import android.provider.Telephony
 import android.telecom.TelecomManager
+import android.util.Log
 import android.view.ContextThemeWrapper
 import android.view.GestureDetector
 import android.view.Gravity
@@ -34,6 +36,7 @@ import android.view.Menu
 import android.view.MotionEvent
 import android.view.accessibility.AccessibilityNodeInfo
 import android.view.animation.DecelerateInterpolator
+import androidx.appcompat.R as AppCompatR
 import androidx.appcompat.widget.PopupMenu
 import androidx.core.graphics.drawable.toBitmap
 import androidx.core.graphics.drawable.toDrawable
@@ -42,6 +45,8 @@ import androidx.core.view.GestureDetectorCompat
 import androidx.core.view.isVisible
 import androidx.core.view.iterator
 import androidx.viewbinding.ViewBinding
+import com.google.android.material.color.DynamicColors
+import com.google.android.material.color.MaterialColors
 import kotlinx.collections.immutable.toImmutableList
 import org.fossify.commons.extensions.appLaunched
 import org.fossify.commons.extensions.beVisible
@@ -56,11 +61,13 @@ import org.fossify.commons.extensions.realScreenSize
 import org.fossify.commons.extensions.showErrorToast
 import org.fossify.commons.extensions.showKeyboard
 import org.fossify.commons.extensions.toast
+import org.fossify.commons.extensions.updateTextColors
 import org.fossify.commons.extensions.viewBinding
 import org.fossify.commons.helpers.DARK_GREY
 import org.fossify.commons.helpers.ensureBackgroundThread
 import org.fossify.commons.helpers.isOreoMr1Plus
 import org.fossify.commons.helpers.isQPlus
+import org.fossify.commons.helpers.isSPlus
 import org.fossify.home.BuildConfig
 import org.fossify.home.R
 import org.fossify.home.databinding.ActivityMainBinding
@@ -91,6 +98,8 @@ import org.fossify.home.helpers.REQUEST_CONFIGURE_WIDGET
 import org.fossify.home.helpers.REQUEST_CREATE_SHORTCUT
 import org.fossify.home.helpers.REQUEST_SET_DEFAULT
 import org.fossify.home.helpers.UNINSTALL_APP_REQUEST_CODE
+import org.fossify.home.helpers.WIDGET_HOST_ID
+import org.fossify.home.helpers.WallpaperBlurManager
 import org.fossify.home.interfaces.FlingListener
 import org.fossify.home.interfaces.ItemMenuListener
 import org.fossify.home.models.AppLauncher
@@ -121,23 +130,47 @@ class MainActivity : SimpleActivity(), FlingListener {
             ((shortcutId: String, label: String, icon: Drawable) -> Unit)? = null
     private var wasJustPaused: Boolean = false
 
+    private var initialIconSize = 0
+    private var initialHomeRowCount = 0
+    private var initialHomeColumnCount = 0
+    private var initialDrawerColumnCount = 0
+    private var initialShowSearchBar = false
+    private var initialShowDrawerAppLabels = false
+    private var initialShowHomeAppLabels = false
+    private var initialShowSearchBarBelowDock = false
+    private var initialSearchBarWidgetId = -1
+    private var initialIconPack = ""
+
     private var wallpaperColorChangeListener: OnColorsChangedListener? = null
     private var wallpaperSupportsDarkText: Boolean? = null
 
     private lateinit var mDetector: GestureDetectorCompat
     private val binding by viewBinding(ActivityMainBinding::inflate)
 
+    private val drawerTopMargin by lazy { resources.getDimension(R.dimen.drawer_top_margin) }
+
+    private val wallpaperColorListener =
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O_MR1) {
+            OnColorsChangedListener { _, _ ->
+                applyDynamicThemeToConfig()
+                updateTextColors(binding.root)
+                binding.homeScreenGrid.root.updateColors()
+            }
+        } else null
+
     companion object {
         private var mLastUpEvent = 0L
         private const val ANIMATION_DURATION = 150L
         private const val APP_DRAWER_CLOSE_DELAY = 300L
         private const val APP_DRAWER_STATE = "app_drawer_state"
+        private const val MAX_BLUR_RADIUS = 80f
     }
 
     override fun onCreate(savedInstanceState: Bundle?) {
         useDynamicTheme = false
 
         super.onCreate(savedInstanceState)
+        WallpaperBlurManager.prepareWindow(this)
         setContentView(binding.root)
         appLaunched(BuildConfig.APPLICATION_ID)
         setupEdgeToEdge(
@@ -151,8 +184,8 @@ class MainActivity : SimpleActivity(), FlingListener {
         mDetector = GestureDetectorCompat(this, MyGestureListener(this))
 
         mScreenHeight = realScreenSize.y
-        mAllAppsFragmentY = mScreenHeight
-        mWidgetsFragmentY = mScreenHeight
+        mAllAppsFragmentY = binding.allAppsFragment.root.y.toInt()
+        mWidgetsFragmentY = binding.widgetsFragment.root.y.toInt()
         mMoveGestureThreshold = resources.getDimensionPixelSize(R.dimen.move_gesture_threshold)
 
         arrayOf(
@@ -182,6 +215,58 @@ class MainActivity : SimpleActivity(), FlingListener {
         }
 
         setupWallpaperColorListener()
+        storeInitialConfigValues()
+    }
+
+    private fun applyDynamicThemeToConfig() {
+        if (!DynamicColors.isDynamicColorAvailable()) return
+        if (!config.isUsingSystemTheme) return
+
+        val primaryColor = MaterialColors.getColor(
+            this,
+            AppCompatR.attr.colorPrimary,
+            Color.parseColor("#1565C0")
+        )
+        val backgroundColor = MaterialColors.getColor(
+            this,
+            com.google.android.material.R.attr.colorSurface,
+            Color.WHITE
+        )
+        val textColor = MaterialColors.getColor(
+            this,
+            com.google.android.material.R.attr.colorOnSurface,
+            Color.BLACK
+        )
+
+        config.customPrimaryColor = primaryColor
+        config.customBackgroundColor = backgroundColor
+        config.customTextColor = textColor
+    }
+
+    private fun storeInitialConfigValues() {
+        initialIconSize = config.iconSize
+        initialHomeRowCount = config.homeRowCount
+        initialHomeColumnCount = config.homeColumnCount
+        initialDrawerColumnCount = config.drawerColumnCount
+        initialShowSearchBar = config.showSearchBar
+        initialShowDrawerAppLabels = config.showDrawerAppLabels
+        initialShowHomeAppLabels = config.showHomeAppLabels
+        initialShowSearchBarBelowDock = config.showSearchBarBelowDock
+        initialSearchBarWidgetId = config.searchBarWidgetId
+        initialIconPack = config.iconPack
+    }
+
+    private fun didConfigChange(): Boolean {
+        return config.iconSize != initialIconSize ||
+                config.homeRowCount != initialHomeRowCount ||
+                config.homeColumnCount != initialHomeColumnCount ||
+                config.drawerColumnCount != initialDrawerColumnCount ||
+                config.showSearchBar != initialShowSearchBar ||
+                config.showDrawerAppLabels != initialShowDrawerAppLabels ||
+                config.showHomeAppLabels != initialShowHomeAppLabels ||
+                config.showSearchBarBelowDock != initialShowSearchBarBelowDock ||
+                config.searchBarWidgetId != initialSearchBarWidgetId ||
+                config.iconPack != initialIconPack
     }
 
     private fun setupWallpaperColorListener() {
@@ -211,9 +296,26 @@ class MainActivity : SimpleActivity(), FlingListener {
 
     private fun refreshWallpaperSupportsDarkText() {
         if (!isOreoMr1Plus()) return
-        wallpaperSupportsDarkText = WallpaperManager.getInstance(this)
+        val colors = WallpaperManager.getInstance(this)
             .getWallpaperColors(WallpaperManager.FLAG_SYSTEM)
-            ?.supportsDarkText()
+
+        colors?.let {
+            val primary = String.format("#%06X", (0xFFFFFF and it.primaryColor.toArgb()))
+            val secondary = it.secondaryColor?.let { s -> String.format("#%06X", (0xFFFFFF and s.toArgb())) }
+            val tertiary = it.tertiaryColor?.let { t -> String.format("#%06X", (0xFFFFFF and t.toArgb())) }
+            Log.d("WallpaperColors", "Primary: $primary, Secondary: $secondary, Tertiary: $tertiary")
+        }
+
+        if (isSPlus()) {
+            val accent1 = String.format("#%06X", (0xFFFFFF and getColor(android.R.color.system_accent1_500)))
+            val accent2 = String.format("#%06X", (0xFFFFFF and getColor(android.R.color.system_accent2_500)))
+            val accent3 = String.format("#%06X", (0xFFFFFF and getColor(android.R.color.system_accent3_500)))
+            val neutral1 = String.format("#%06X", (0xFFFFFF and getColor(android.R.color.system_neutral1_500)))
+            val neutral2 = String.format("#%06X", (0xFFFFFF and getColor(android.R.color.system_neutral2_500)))
+            Log.d("WallpaperColors", "Material You Palette (500): Accent1: $accent1, Accent2: $accent2, Accent3: $accent3, Neutral1: $neutral1, Neutral2: $neutral2")
+        }
+
+        wallpaperSupportsDarkText = colors?.supportsDarkText()
     }
 
     override fun onNewIntent(intent: Intent) {
@@ -245,10 +347,23 @@ class MainActivity : SimpleActivity(), FlingListener {
     override fun onStart() {
         super.onStart()
         binding.homeScreenGrid.root.appWidgetHost.startListening()
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O_MR1) {
+            wallpaperColorListener?.let {
+                WallpaperManager.getInstance(this)
+                    .addOnColorsChangedListener(it, Handler(Looper.getMainLooper()))
+            }
+        }
     }
 
     override fun onResume() {
         super.onResume()
+        applyDynamicThemeToConfig()
+        if (didConfigChange()) {
+            IconCache.clear()
+            recreate()
+            return
+        }
+
         wasJustPaused = false
         refreshWallpaperSupportsDarkText()
         Handler(Looper.getMainLooper()).postDelayed({
@@ -303,6 +418,11 @@ class MainActivity : SimpleActivity(), FlingListener {
         } catch (_: Exception) {
         }
 
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O_MR1) {
+            wallpaperColorListener?.let {
+                WallpaperManager.getInstance(this).removeOnColorsChangedListener(it)
+            }
+        }
         wasJustPaused = false
     }
 
@@ -436,13 +556,15 @@ class MainActivity : SimpleActivity(), FlingListener {
                         if (isWidgetsFragmentExpanded()) {
                             val newY = mWidgetsFragmentY - diffY
                             binding.widgetsFragment.root.y = min(
-                                a = max(0f, newY), b = mScreenHeight.toFloat()
+                                a = max(drawerTopMargin.toInt(), newY.toInt()).toFloat(), b = mScreenHeight.toFloat()
                             )
+                            updateUIProgress(binding.widgetsFragment.root.y)
                         } else if (mLongPressedIcon == null) {
                             val newY = mAllAppsFragmentY - diffY
                             binding.allAppsFragment.root.y = min(
-                                a = max(0f, newY), b = mScreenHeight.toFloat()
+                                a = max(drawerTopMargin.toInt(), newY.toInt()).toFloat(), b = mScreenHeight.toFloat()
                             )
+                            updateUIProgress(binding.allAppsFragment.root.y)
                         }
                     } else if (abs(diffX) > abs(diffY) && !mIgnoreXMoveEvents) {
                         mIgnoreYMoveEvents = true
@@ -632,9 +754,12 @@ class MainActivity : SimpleActivity(), FlingListener {
     }
 
     private fun showFragment(fragment: ViewBinding, animationDuration: Long = ANIMATION_DURATION) {
-        ObjectAnimator.ofFloat(fragment.root, "y", 0f).apply {
+        ObjectAnimator.ofFloat(fragment.root, "y", drawerTopMargin).apply {
             duration = animationDuration
             interpolator = DecelerateInterpolator()
+            addUpdateListener { animator ->
+                updateUIProgress(animator.animatedValue as Float)
+            }
             start()
         }
 
@@ -667,6 +792,9 @@ class MainActivity : SimpleActivity(), FlingListener {
         ObjectAnimator.ofFloat(fragment.root, "y", mScreenHeight.toFloat()).apply {
             duration = animationDuration
             interpolator = DecelerateInterpolator()
+            addUpdateListener { animator ->
+                updateUIProgress(animator.animatedValue as Float)
+            }
             start()
         }
 
@@ -686,6 +814,8 @@ class MainActivity : SimpleActivity(), FlingListener {
             }
         }, animationDuration)
     }
+
+    
 
     fun homeScreenLongPressed(eventX: Float, eventY: Float) {
         if (isAllAppsFragmentExpanded() || isWidgetsFragmentExpanded()) {
@@ -737,6 +867,7 @@ class MainActivity : SimpleActivity(), FlingListener {
         if (isAllAppsFragmentExpanded()) {
             val close = {
                 binding.allAppsFragment.root.y = mScreenHeight.toFloat()
+                updateUIProgress(mScreenHeight.toFloat())
                 binding.allAppsFragment.allAppsGrid.scrollToPosition(0)
                 binding.allAppsFragment.root.touchDownY = -1
                 binding.homeScreenGrid.root.fragmentCollapsed()
@@ -754,6 +885,7 @@ class MainActivity : SimpleActivity(), FlingListener {
         if (isWidgetsFragmentExpanded()) {
             val close = {
                 binding.widgetsFragment.root.y = mScreenHeight.toFloat()
+                updateUIProgress(mScreenHeight.toFloat())
                 binding.widgetsFragment.widgetsList.scrollToPosition(0)
                 clearWidgetsSearch()
                 binding.widgetsFragment.root.touchDownY = -1
@@ -1104,8 +1236,8 @@ class MainActivity : SimpleActivity(), FlingListener {
             }
 
             val label = info.loadLabel(packageManager).toString()
-            val drawable = info.loadIcon(packageManager)
-                ?: getDrawableForPackageName(packageName)
+            val drawable = getDrawableForPackageName(packageName, activityName)
+                ?: info.loadIcon(packageManager)
                 ?: continue
 
             val bitmap = drawable.toBitmap(
@@ -1345,6 +1477,24 @@ class MainActivity : SimpleActivity(), FlingListener {
             isAppearanceLightStatusBars = isLightBackground
             isAppearanceLightNavigationBars = isLightBackground
         }
+    }
+
+    private fun updateUIProgress(y: Float) {
+        val progress = if (mScreenHeight > drawerTopMargin) {
+            (1f - ((y - drawerTopMargin) / (mScreenHeight - drawerTopMargin))).coerceIn(0f, 1f)
+        } else {
+            0f
+        }
+        val radius = (progress * MAX_BLUR_RADIUS).toInt()
+        WallpaperBlurManager.setBlurRadius(this, radius)
+        
+        // Fade out
+        binding.homeScreenGrid.root.alpha = 1f - progress
+        
+        // Scale down slightly (to 90% at full drawer open)
+        val scale = 1f - (progress * 0.1f)
+        binding.homeScreenGrid.root.scaleX = scale
+        binding.homeScreenGrid.root.scaleY = scale
     }
 
     // taken from https://gist.github.com/maxjvh/a6ab15cbba9c82a5065d

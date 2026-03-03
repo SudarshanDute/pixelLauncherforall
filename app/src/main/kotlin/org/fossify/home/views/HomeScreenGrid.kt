@@ -4,6 +4,7 @@ import android.animation.Animator
 import android.animation.AnimatorListenerAdapter
 import android.animation.ValueAnimator
 import android.annotation.SuppressLint
+import android.appwidget.AppWidgetHost
 import android.appwidget.AppWidgetHostView
 import android.appwidget.AppWidgetManager
 import android.appwidget.AppWidgetProviderInfo
@@ -40,6 +41,7 @@ import androidx.core.graphics.withTranslation
 import androidx.core.view.ViewCompat
 import androidx.core.view.WindowInsetsCompat.Type
 import androidx.core.view.accessibility.AccessibilityNodeInfoCompat
+import androidx.core.view.isVisible
 import androidx.customview.widget.ExploreByTouchHelper
 import com.google.android.material.math.MathUtils
 import kotlinx.collections.immutable.toImmutableList
@@ -144,13 +146,15 @@ class HomeScreenGrid(context: Context, attrs: AttributeSet, defStyle: Int) :
     var itemClickListener: ((HomeScreenGridItem) -> Unit)? = null
     var itemLongClickListener: ((HomeScreenGridItem) -> Unit)? = null
 
+    private var searchBarWidgetView: MyAppWidgetHostView? = null
+
 
     init {
         ViewCompat.setAccessibilityDelegate(this, accessibilityHelper)
 
         val customTypeface = FontHelper.getTypeface(context)
         textPaint = TextPaint(Paint.ANTI_ALIAS_FLAG).apply {
-            color = Color.WHITE
+            color = context.config.customTextColor.takeIf { context.config.isUsingSystemTheme } ?: Color.WHITE
             textSize = context.resources.getDimension(org.fossify.commons.R.dimen.smaller_text_size)
             setShadowLayer(2f, 0f, 0f, Color.BLACK)
             typeface = customTypeface
@@ -204,7 +208,7 @@ class HomeScreenGrid(context: Context, attrs: AttributeSet, defStyle: Int) :
             val newLeft   = sideMargin + bars.left
             val newRight  = sideMargin + bars.right
             val newTop    = bars.top
-            val newBottom = max(bars.bottom, max(gestures.bottom, navIgnoring.bottom))
+            val newBottom = max(bars.bottom, max(gestures.bottom, navIgnoring.bottom)) - 10
             val marginsChanged = sideMargins.left != newLeft
                     || sideMargins.top != newTop
                     || sideMargins.right != newRight
@@ -231,6 +235,60 @@ class HomeScreenGrid(context: Context, attrs: AttributeSet, defStyle: Int) :
     override fun onFinishInflate() {
         super.onFinishInflate()
         binding = HomeScreenGridBinding.bind(this)
+        setupSearchBar()
+    }
+
+    private fun setupSearchBar() {
+        if (context.config.showSearchBarBelowDock) {
+            val widgetId = context.config.searchBarWidgetId
+            if (widgetId != -1) {
+                val info = appWidgetManager.getAppWidgetInfo(widgetId)
+                if (info != null) {
+                    // Use applicationContext to avoid AppCompat inflation issues with RemoteViews
+                    searchBarWidgetView = appWidgetHost.createView(context.applicationContext, widgetId, info) as MyAppWidgetHostView
+                    searchBarWidgetView?.setAppWidget(widgetId, info)
+                    binding.searchBarContainer.removeAllViews()
+                    binding.searchBarContainer.addView(searchBarWidgetView)
+                    binding.searchBarContainer.beVisible()
+                } else {
+                    setupNativeSearchBar()
+                }
+            } else {
+                setupNativeSearchBar()
+            }
+        } else {
+            binding.searchBarContainer.beGone()
+        }
+    }
+
+    private fun setupNativeSearchBar() {
+        binding.searchBarContainer.removeAllViews()
+        val nativeView = android.view.LayoutInflater.from(context).inflate(R.layout.widget_google, binding.searchBarContainer, false)
+        
+        nativeView.findViewById<View>(R.id.google_search_bar_container).setOnClickListener {
+            try {
+                val searchIntent = android.content.Intent(android.content.Intent.ACTION_WEB_SEARCH).apply {
+                    setPackage("com.google.android.googlequicksearchbox")
+                    flags = android.content.Intent.FLAG_ACTIVITY_NEW_TASK
+                }
+                context.startActivity(searchIntent)
+            } catch (e: Exception) {
+            }
+        }
+
+        nativeView.findViewById<View>(R.id.mice_logo).setOnClickListener {
+            try {
+                val micIntent = android.content.Intent(android.content.Intent.ACTION_VOICE_COMMAND).apply {
+                    setPackage("com.google.android.googlequicksearchbox")
+                    flags = android.content.Intent.FLAG_ACTIVITY_NEW_TASK
+                }
+                context.startActivity(micIntent)
+            } catch (e: Exception) {
+            }
+        }
+
+        binding.searchBarContainer.addView(nativeView)
+        binding.searchBarContainer.beVisible()
     }
 
     fun fetchGridItems() {
@@ -239,7 +297,7 @@ class HomeScreenGrid(context: Context, attrs: AttributeSet, defStyle: Int) :
             gridItems = context.homeScreenGridItemsDB.getAllItems() as ArrayList<HomeScreenGridItem>
             gridItems.toImmutableList().forEach { item ->
                 if (item.type == ITEM_TYPE_ICON) {
-                    item.drawable = context.getDrawableForPackageName(item.packageName)
+                    item.drawable = context.getDrawableForPackageName(item.packageName, item.activityName)
                 } else if (item.type == ITEM_TYPE_FOLDER) {
                     item.drawable = item.toFolder().generateDrawable()
                 } else if (item.type == ITEM_TYPE_SHORTCUT) {
@@ -275,6 +333,7 @@ class HomeScreenGrid(context: Context, attrs: AttributeSet, defStyle: Int) :
             widgetViews.forEach { removeView(it) }
             widgetViews.clear()
             redrawGrid()
+            setupSearchBar()
         }
     }
 
@@ -285,6 +344,7 @@ class HomeScreenGrid(context: Context, attrs: AttributeSet, defStyle: Int) :
             2f, 0f, 0f, context.getProperTextColor().getContrastColor()
         )
         folderBackgroundPaint.color = context.getProperBackgroundColor()
+        textPaint.color = context.config.customTextColor.takeIf { context.config.isUsingSystemTheme } ?: Color.WHITE
     }
 
     fun removeAppIcon(item: HomeScreenGridItem) {
@@ -362,7 +422,7 @@ class HomeScreenGrid(context: Context, attrs: AttributeSet, defStyle: Int) :
                 draggedItem!!.drawable = draggedGridItem.toFolder().generateDrawable()
             } else {
                 draggedItem!!.drawable =
-                    context.getDrawableForPackageName(draggedGridItem.packageName)
+                    context.getDrawableForPackageName(draggedGridItem.packageName, draggedGridItem.activityName)
             }
         }
 
@@ -678,12 +738,12 @@ class HomeScreenGrid(context: Context, attrs: AttributeSet, defStyle: Int) :
             yIndex = 0
             redrawIcons = true
         } else {
-            val center = gridCenters.minBy {
+            val center = gridCenters.minByOrNull {
                 abs(it.x - draggedItemCurrentCoords.first + sideMargins.left)
                     .plus(abs(it.y - draggedItemCurrentCoords.second + sideMargins.top))
             }
 
-            val gridCells = getClosestGridCells(center)
+            val gridCells = getClosestGridCells(center!!)
             if (gridCells != null) {
                 xIndex = gridCells.x
                 yIndex = gridCells.y
@@ -1130,9 +1190,9 @@ class HomeScreenGrid(context: Context, attrs: AttributeSet, defStyle: Int) :
         appWidgetProviderInfo: AppWidgetProviderInfo,
         item: HomeScreenGridItem,
     ) {
-        // we have to pass the base context here, else there will be errors with the themes
+        // Use applicationContext to avoid AppCompat inflation issues with RemoteViews
         val widgetView = appWidgetHost.createView(
-            (context as MainActivity).baseContext,
+            context.applicationContext,
             item.widgetId,
             appWidgetProviderInfo
         ) as MyAppWidgetHostView
@@ -1263,7 +1323,9 @@ class HomeScreenGrid(context: Context, attrs: AttributeSet, defStyle: Int) :
             gridItems
                 .filter {
                     it.isSingleCellType() && pager.isItemOnLastPage(it)
-                            && !it.docked && it.parentId == null
+                            && !it.getDockAdjustedTop(rowCount)
+                                .let { top -> top == rowCount - 1 && it.docked }
+                            && it.parentId == null
                 }
                 .forEach { item ->
                     if (item.outOfBounds()) {
@@ -1509,7 +1571,14 @@ class HomeScreenGrid(context: Context, attrs: AttributeSet, defStyle: Int) :
 
     private fun fillCellSizes() {
         cellWidth = getFakeWidth() / columnCount
-        cellHeight = getFakeHeight() / rowCount
+        val totalHeight = getFakeHeight()
+        val searchBarHeight = if (context.config.showSearchBarBelowDock) {
+            val baseHeight = context.resources.getDimension(R.dimen.search_bar_height).toInt()
+            baseHeight + (10 * context.resources.displayMetrics.density).toInt()
+        } else {
+            0
+        }
+        cellHeight = (totalHeight - searchBarHeight) / rowCount
         val extraXMargin = if (cellWidth > cellHeight) {
             (cellWidth - cellHeight) / 2
         } else {
@@ -1520,7 +1589,8 @@ class HomeScreenGrid(context: Context, attrs: AttributeSet, defStyle: Int) :
         } else {
             0
         }
-        iconSize = min(cellWidth, cellHeight) - 2 * iconMargin
+        val defaultIconSize = min(cellWidth, cellHeight) - 2 * iconMargin -20
+        iconSize = (defaultIconSize * (context.config.iconSize / 100f) * 0.90f).toInt()
         pageIndicatorsYPos = (rowCount - 1) * cellHeight + extraYMargin
         for (i in 0 until columnCount) {
             for (j in 0 until rowCount) {
@@ -1863,7 +1933,7 @@ class HomeScreenGrid(context: Context, attrs: AttributeSet, defStyle: Int) :
 
     private fun Canvas.drawItemInCell(item: HomeScreenGridItem, cell: Rect) {
         if (item.id != draggedItem?.id) {
-            val drawableX = cell.left + iconMargin
+            val drawableX = cell.left + (cell.width() - iconSize) / 2
 
             val drawable = if (item.type == ITEM_TYPE_FOLDER) {
                 item.toFolder().generateDrawable()
@@ -1881,7 +1951,7 @@ class HomeScreenGrid(context: Context, attrs: AttributeSet, defStyle: Int) :
                     drawableY + iconSize
                 )
             } else {
-                val drawableY = cell.top + iconMargin
+                val drawableY = cell.top + (cell.height() - iconSize) / 2
                 drawable?.setBounds(
                     drawableX,
                     drawableY,

@@ -1,4 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
     <color name="semitransparent_navigation">#33000000</color>
+    <color name="google_widget_bg">#FFFFFF</color>
+    <color name="google_widget_icon">#1F1F1F</color>
 </resources>

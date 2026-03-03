@@ -6,6 +6,7 @@ import android.content.Context
 import android.content.Intent
 import android.content.pm.LauncherApps
 import android.content.pm.PackageManager
+import android.graphics.Color
 import android.os.Process
 import android.util.AttributeSet
 import android.view.MotionEvent
@@ -261,6 +262,8 @@ class WidgetsFragment(context: Context, attributeSet: AttributeSet) :
         binding.searchBar.requireToolbar().beGone()
         binding.searchBar.updateColors()
         binding.searchBar.setupMenu()
+        binding.searchBar.setBackgroundColor(Color.TRANSPARENT)
+        binding.searchBar.binding.topToolbarSearch.setBackgroundColor(Color.TRANSPARENT)
         binding.searchBar.onSearchTextChangedListener = {
             splitWidgetsByApps()
         }

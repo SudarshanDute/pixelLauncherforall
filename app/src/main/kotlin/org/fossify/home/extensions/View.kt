@@ -1,16 +1,14 @@
 package org.fossify.home.extensions
 
-import android.graphics.drawable.LayerDrawable
-import android.view.RoundedCorner.POSITION_TOP_LEFT
-import android.view.RoundedCorner.POSITION_TOP_RIGHT
+import android.graphics.Color
+import android.os.Build
 import android.view.View
 import android.view.animation.AccelerateDecelerateInterpolator
 import androidx.core.content.res.ResourcesCompat
-import androidx.core.graphics.drawable.toDrawable
-import org.fossify.commons.R
+import androidx.core.view.ViewCompat
+import androidx.core.view.updatePadding
 import org.fossify.commons.extensions.applyColorFilter
-import org.fossify.commons.extensions.getProperBackgroundColor
-import org.fossify.commons.helpers.isSPlus
+import org.fossify.home.R
 
 fun View.animateScale(
     from: Float,
@@ -27,21 +25,22 @@ fun View.animateScale(
     }
 
 fun View.setupDrawerBackground() {
-    val backgroundColor = context.getProperBackgroundColor()
-    background = backgroundColor.toDrawable()
+    // Force the view itself to be fully opaque
+    this.alpha = 1f
+    
+    /**
+     * Use a semi-transparent background for all versions. 
+     * On Android 12+ (API 31+), this allows the wallpaper blur behind the window to be visible.
+     * On older versions, it provides a nice translucent fallback effect.
+     */
+    val backgroundColor = Color.argb(153, 0, 0, 0) // ~60% opaque black
 
-    val insets = rootWindowInsets
-    if (isSPlus() && insets != null) {
-        val topRightCorner = insets.getRoundedCorner(POSITION_TOP_RIGHT)?.radius ?: 0
-        val topLeftCorner = insets.getRoundedCorner(POSITION_TOP_LEFT)?.radius ?: 0
-        if (topRightCorner > 0 && topLeftCorner > 0) {
-            background = ResourcesCompat.getDrawable(
-                context.resources, R.drawable.bottom_sheet_bg, context.theme
-            ).apply {
-                (this as LayerDrawable)
-                    .findDrawableByLayerId(R.id.bottom_sheet_background)
-                    .applyColorFilter(backgroundColor)
-            }
-        }
+    val drawable = ResourcesCompat.getDrawable(context.resources, R.drawable.drawer_background, context.theme)
+    drawable?.applyColorFilter(backgroundColor)
+    background = drawable
+
+    ViewCompat.setOnApplyWindowInsetsListener(this) { v, insets ->
+        v.updatePadding(top = context.resources.getDimensionPixelSize(org.fossify.commons.R.dimen.medium_margin))
+        insets
     }
 }

@@ -12,6 +12,7 @@ import org.fossify.home.activities.SimpleActivity
 import org.fossify.home.databinding.ItemWidgetListItemsHolderBinding
 import org.fossify.home.databinding.ItemWidgetListSectionBinding
 import org.fossify.home.databinding.ItemWidgetPreviewBinding
+import org.fossify.home.extensions.config
 import org.fossify.home.helpers.WIDGET_LIST_ITEMS_HOLDER
 import org.fossify.home.helpers.WIDGET_LIST_SECTION
 import org.fossify.home.interfaces.WidgetsFragmentListener
@@ -27,6 +28,11 @@ class WidgetsAdapter(
 ) : RecyclerView.Adapter<WidgetsAdapter.ViewHolder>() {
 
     private var textColor = activity.getProperTextColor()
+    private var iconSize = 0
+
+    init {
+        calculateIconSize()
+    }
 
     override fun onCreateViewHolder(parent: ViewGroup, viewType: Int): ViewHolder {
         val inflater = LayoutInflater.from(parent.context)
@@ -55,11 +61,18 @@ class WidgetsAdapter(
         else -> WIDGET_LIST_ITEMS_HOLDER
     }
 
+    private fun calculateIconSize() {
+        val defaultIconSize = activity.resources.getDimensionPixelSize(R.dimen.launcher_icon_size)
+        iconSize = (defaultIconSize * (activity.config.iconSize / 100f)).toInt()
+    }
+
     private fun setupListSection(view: View, section: WidgetsListSection) {
         ItemWidgetListSectionBinding.bind(view).apply {
             widgetAppTitle.text = section.appTitle
             widgetAppTitle.setTextColor(textColor)
             widgetAppIcon.setImageDrawable(section.appIcon)
+            widgetAppIcon.layoutParams.width = iconSize
+            widgetAppIcon.layoutParams.height = iconSize
         }
     }
 
@@ -78,23 +91,21 @@ class WidgetsAdapter(
                 0
             }
 
-            widgetPreview.widgetTitle.apply {
-                text = widget.widgetTitle
-                setTextColor(textColor)
+            widgetPreview.widgetTitle.text = widget.widgetTitle
+            widgetPreview.widgetSize.text = if (widget.isShortcut) {
+                activity.getString(org.fossify.commons.R.string.shortcut)
+            } else {
+                "${widget.widthCells} x ${widget.heightCells}"
             }
 
-            widgetPreview.widgetSize.apply {
-                text = if (widget.isShortcut) {
-                    activity.getString(org.fossify.commons.R.string.shortcut)
-                } else {
-                    "${widget.widthCells} x ${widget.heightCells}"
-                }
-                setTextColor(textColor)
-            }
-
-            (widgetPreview.widgetImage.layoutParams as RelativeLayout.LayoutParams).apply {
+            // Since it's a LinearLayout inside the MaterialCardView now,
+            // we use MarginLayoutParams for maximum compatibility and set margins.
+            (widgetPreview.root.layoutParams as? ViewGroup.MarginLayoutParams)?.apply {
                 marginStart = activity.resources.getDimension(org.fossify.commons.R.dimen.activity_margin).toInt()
                 marginEnd = endMargin
+            }
+
+            widgetPreview.widgetImage.layoutParams.apply {
                 width = imageSize
                 height = imageSize
             }

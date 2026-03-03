@@ -4,6 +4,16 @@
     android:layout_width="match_parent"
     android:layout_height="match_parent">
 
+    <FrameLayout
+        android:id="@+id/search_bar_container"
+        android:layout_width="match_parent"
+        android:layout_height="@dimen/search_bar_height"
+        android:layout_alignParentBottom="true"
+        android:layout_marginBottom="8dp"
+        android:layout_marginTop="2dp"
+        android:paddingHorizontal="16dp"
+        android:visibility="gone" />
+
     <!-- Drawing area with Z translation so it is drawn over widgets -->
     <org.fossify.home.views.HomeScreenGridDrawingArea
         android:id="@+id/drawing_area"

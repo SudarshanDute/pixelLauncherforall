@@ -141,7 +141,9 @@ detekt {
 
 dependencies {
     implementation(libs.fossify.commons)
-
+    implementation(libs.material)
+    implementation(libs.androidx.appcompat)
+    implementation(libs.androidx.material3)
     implementation(libs.bundles.room)
     ksp(libs.androidx.room.compiler)
     detektPlugins(libs.compose.detekt)

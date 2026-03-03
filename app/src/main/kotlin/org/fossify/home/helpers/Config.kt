@@ -45,4 +45,34 @@ class Config(context: Context) : BaseConfig(context) {
     var showHomeAppLabels: Boolean
         get() = prefs.getBoolean(SHOW_HOME_APP_LABELS, true)
         set(showHomeAppLabels) = prefs.edit().putBoolean(SHOW_HOME_APP_LABELS, showHomeAppLabels).apply()
+
+    var showDock: Boolean
+        get() = prefs.getBoolean(SHOW_DOCK, true)
+        set(showDock) = prefs.edit().putBoolean(SHOW_DOCK, showDock).apply()
+
+    var showDockLabels: Boolean
+        get() = prefs.getBoolean(SHOW_DOCK_LABELS, false)
+        set(showDockLabels) = prefs.edit().putBoolean(SHOW_DOCK_LABELS, showDockLabels).apply()
+
+    var showSearchBarBelowDock: Boolean
+        get() = prefs.getBoolean(SHOW_SEARCH_BAR_BELOW_DOCK, true)
+        set(showSearchBarBelowDock) = prefs.edit().putBoolean(SHOW_SEARCH_BAR_BELOW_DOCK, showSearchBarBelowDock).apply()
+
+    var searchBarWidgetId: Int
+        get() = prefs.getInt(SEARCH_BAR_WIDGET_ID, -1)
+        set(searchBarWidgetId) = prefs.edit().putInt(SEARCH_BAR_WIDGET_ID, searchBarWidgetId).apply()
+
+    var iconSize: Int
+        get() = prefs.getInt(ICON_SIZE, 100)
+        set(value) {
+            prefs.edit().putInt(ICON_SIZE, value).apply()
+        }
+
+    var isUsingSystemTheme: Boolean
+        get() = prefs.getBoolean(IS_USING_SYSTEM_THEME, false)
+        set(isUsingSystemTheme) = prefs.edit().putBoolean(IS_USING_SYSTEM_THEME, isUsingSystemTheme).apply()
+
+    var iconPack: String
+        get() = prefs.getString(ICON_PACK, "") ?: ""
+        set(iconPack) = prefs.edit().putString(ICON_PACK, iconPack).apply()
 }

@@ -1,38 +1,44 @@
 package org.fossify.home.activities
 
+import android.app.Activity
 import android.appwidget.AppWidgetHost
 import android.appwidget.AppWidgetManager
+import android.content.ComponentName
 import android.content.Context
 import android.content.Intent
+import android.graphics.drawable.Drawable
+import android.os.Build
 import android.os.Bundle
+import android.os.Parcelable
 import android.view.LayoutInflater
 import android.view.ViewGroup
+import androidx.core.content.ContextCompat
 import androidx.recyclerview.widget.RecyclerView
 import com.bumptech.glide.Glide
 import org.fossify.commons.extensions.getProperTextColor
 import org.fossify.commons.extensions.viewBinding
 import org.fossify.commons.helpers.ensureBackgroundThread
-import androidx.core.content.ContextCompat
 import org.fossify.home.R
 import org.fossify.home.databinding.ActivitySelectSearchBarWidgetBinding
+import org.fossify.home.databinding.ItemWidgetListItemsHolderBinding
+import org.fossify.home.databinding.ItemWidgetListSectionBinding
 import org.fossify.home.databinding.ItemWidgetPreviewBinding
 import org.fossify.home.extensions.getInitialCellSize
+import org.fossify.home.helpers.REQUEST_ALLOW_BINDING_WIDGET
 import org.fossify.home.helpers.REQUEST_CONFIGURE_WIDGET
 import org.fossify.home.helpers.WIDGET_HOST_ID
 import org.fossify.home.models.AppWidget
-import org.fossify.home.databinding.ItemWidgetListSectionBinding
-import android.graphics.drawable.Drawable
-import org.fossify.home.databinding.ItemWidgetListItemsHolderBinding
 import java.util.ArrayList
 
 sealed class WidgetListItem {
-    class SectionHeader(val appTitle: String, val appIcon: Drawable?) : WidgetListItem()
-    class WidgetCarousel(val widgets: List<AppWidget>) : WidgetListItem()
+    data class SectionHeader(val appTitle: String, val appIcon: Drawable?) : WidgetListItem()
+    data class WidgetCarousel(val widgets: List<AppWidget>) : WidgetListItem()
 }
 
 class SelectSearchBarWidgetActivity : SimpleActivity() {
     private val binding by viewBinding(ActivitySelectSearchBarWidgetBinding::inflate)
     private var mAppWidgetId = -1
+    private var mSelectedWidgetProvider: ComponentName? = null
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -45,18 +51,34 @@ class SelectSearchBarWidgetActivity : SimpleActivity() {
         binding.selectWidgetToolbar.title = getString(R.string.search_bar_widget)
 
         mAppWidgetId = intent.getIntExtra(AppWidgetManager.EXTRA_APPWIDGET_ID, -1)
+        
+        if (savedInstanceState != null) {
+            mAppWidgetId = savedInstanceState.getInt("app_widget_id", -1)
+            mSelectedWidgetProvider = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+                savedInstanceState.getParcelable("selected_provider", ComponentName::class.java)
+            } else {
+                @Suppress("DEPRECATION")
+                savedInstanceState.getParcelable("selected_provider") as? ComponentName
+            }
+        }
+
         getWidgets()
+    }
+
+    override fun onSaveInstanceState(outState: Bundle) {
+        super.onSaveInstanceState(outState)
+        outState.putInt("app_widget_id", mAppWidgetId)
+        outState.putParcelable("selected_provider", mSelectedWidgetProvider)
     }
 
     private fun getWidgets() {
         ensureBackgroundThread {
             val appWidgets = ArrayList<AppWidget>()
-            val manager = AppWidgetManager.getInstance(this)
+            val manager = AppWidgetManager.getInstance(this@SelectSearchBarWidgetActivity)
             val packageManager = packageManager
             val infoList = manager.installedProviders
             for (info in infoList) {
                 val cellSize = getInitialCellSize(info, info.minWidth, info.minHeight)
-                // Filter for widgets with height at most 2 and width at least 4
                 if (cellSize.height <= 2 && cellSize.width >= 4) {
                     val appPackageName = info.provider.packageName
                     val appTitle = try {
@@ -74,10 +96,11 @@ class SelectSearchBarWidgetActivity : SimpleActivity() {
 
                     val widgetTitle = info.loadLabel(packageManager) ?: ""
                     
-                    // Improved visibility: load preview, then icon, then app icon fallback
-                    var widgetPreviewImage = info.loadPreviewImage(this, resources.displayMetrics.densityDpi)
-                    if (widgetPreviewImage == null && info.previewImage != 0 && appPackageName == packageName) {
-                        widgetPreviewImage = ContextCompat.getDrawable(this, info.previewImage)
+                    var widgetPreviewImage = info.loadPreviewImage(this@SelectSearchBarWidgetActivity, resources.displayMetrics.densityDpi)
+                    if (widgetPreviewImage == null && info.previewImage != 0) {
+                        try {
+                            widgetPreviewImage = ContextCompat.getDrawable(this@SelectSearchBarWidgetActivity, info.previewImage)
+                        } catch (e: Exception) { }
                     }
                     
                     if (widgetPreviewImage == null) {
@@ -104,49 +127,30 @@ class SelectSearchBarWidgetActivity : SimpleActivity() {
                 }
             }
 
-            // Group widgets by app title
             val groupedWidgets = appWidgets.groupBy { it.appTitle }
             val sortedAppTitles = groupedWidgets.keys.sorted()
 
             val listItems = ArrayList<WidgetListItem>()
             for (appTitle in sortedAppTitles) {
                 val widgetsForApp = groupedWidgets[appTitle] ?: continue
-                // Sort widgets within the app alphabetically
                 val sortedWidgetsForApp = widgetsForApp.sortedBy { it.widgetTitle }
-                
-                // Add header for the app (using the icon from the first widget)
                 listItems.add(WidgetListItem.SectionHeader(appTitle, sortedWidgetsForApp.firstOrNull()?.appIcon))
-                
-                // Add the horizontal carousel holder for the widgets
                 listItems.add(WidgetListItem.WidgetCarousel(sortedWidgetsForApp))
             }
 
             runOnUiThread {
-                binding.selectWidgetList.adapter = SelectWidgetAdapter(this, listItems) { widget ->
-                    val resultIntent = Intent()
-                    if (mAppWidgetId != -1 && widget.providerInfo != null) {
-                        val success = manager.bindAppWidgetIdIfAllowed(mAppWidgetId, widget.providerInfo.provider)
+                binding.selectWidgetList.adapter = SelectWidgetAdapter(this@SelectSearchBarWidgetActivity, listItems) { widget ->
+                    val provider = widget.providerInfo?.provider
+                    if (mAppWidgetId != -1 && provider != null) {
+                        mSelectedWidgetProvider = provider
+                        val success = manager.bindAppWidgetIdIfAllowed(mAppWidgetId, provider)
                         if (success) {
-                            if (widget.providerInfo.configure != null) {
-                                val host = AppWidgetHost(this@SelectSearchBarWidgetActivity, WIDGET_HOST_ID)
-                                host.startAppWidgetConfigureActivityForResult(
-                                    this@SelectSearchBarWidgetActivity,
-                                    mAppWidgetId,
-                                    0,
-                                    REQUEST_CONFIGURE_WIDGET,
-                                    null
-                                )
-                            } else {
-                                resultIntent.putExtra(AppWidgetManager.EXTRA_APPWIDGET_ID, mAppWidgetId)
-                                setResult(RESULT_OK, resultIntent)
-                                finish()
-                            }
+                            handleWidgetSelected(provider)
                         } else {
-                            // If direct binding fails, return provider so Settings can try system binding
-                            resultIntent.putExtra(AppWidgetManager.EXTRA_APPWIDGET_PROVIDER, widget.providerInfo.provider)
-                            resultIntent.putExtra(AppWidgetManager.EXTRA_APPWIDGET_ID, mAppWidgetId)
-                            setResult(RESULT_OK, resultIntent)
-                            finish()
+                            val bindIntent = Intent(AppWidgetManager.ACTION_APPWIDGET_BIND)
+                            bindIntent.putExtra(AppWidgetManager.EXTRA_APPWIDGET_ID, mAppWidgetId)
+                            bindIntent.putExtra(AppWidgetManager.EXTRA_APPWIDGET_PROVIDER, provider)
+                            this@SelectSearchBarWidgetActivity.startActivityForResult(bindIntent, REQUEST_ALLOW_BINDING_WIDGET)
                         }
                     }
                 }
@@ -154,14 +158,38 @@ class SelectSearchBarWidgetActivity : SimpleActivity() {
         }
     }
 
+    private fun handleWidgetSelected(provider: ComponentName) {
+        val manager = AppWidgetManager.getInstance(this@SelectSearchBarWidgetActivity)
+        val info = manager.installedProviders.firstOrNull { it.provider == provider }
+        if (info?.configure != null) {
+            val host = AppWidgetHost(this@SelectSearchBarWidgetActivity, WIDGET_HOST_ID)
+            host.startAppWidgetConfigureActivityForResult(
+                this@SelectSearchBarWidgetActivity,
+                mAppWidgetId,
+                0,
+                REQUEST_CONFIGURE_WIDGET,
+                null
+            )
+        } else {
+            val resultIntent = Intent()
+            resultIntent.putExtra(AppWidgetManager.EXTRA_APPWIDGET_ID, mAppWidgetId)
+            setResult(Activity.RESULT_OK, resultIntent)
+            finish()
+        }
+    }
+
     override fun onActivityResult(requestCode: Int, resultCode: Int, resultData: Intent?) {
         super.onActivityResult(requestCode, resultCode, resultData)
         if (requestCode == REQUEST_CONFIGURE_WIDGET) {
-            if (resultCode == RESULT_OK) {
+            if (resultCode == Activity.RESULT_OK) {
                 val resultIntent = Intent()
                 resultIntent.putExtra(AppWidgetManager.EXTRA_APPWIDGET_ID, mAppWidgetId)
-                setResult(RESULT_OK, resultIntent)
+                setResult(Activity.RESULT_OK, resultIntent)
                 finish()
+            }
+        } else if (requestCode == REQUEST_ALLOW_BINDING_WIDGET) {
+            if (resultCode == Activity.RESULT_OK) {
+                mSelectedWidgetProvider?.let { handleWidgetSelected(it) }
             }
         }
     }
@@ -172,27 +200,21 @@ class SelectSearchBarWidgetActivity : SimpleActivity() {
         val itemClick: (AppWidget) -> Unit
     ) : RecyclerView.Adapter<RecyclerView.ViewHolder>() {
 
-        companion object {
-            private const val TYPE_HEADER = 0
-            private const val TYPE_WIDGET = 1
-        }
-
         private val textColor = context.getProperTextColor()
 
         override fun getItemViewType(position: Int): Int {
             return when (items[position]) {
-                is WidgetListItem.SectionHeader -> TYPE_HEADER
-                is WidgetListItem.WidgetCarousel -> TYPE_WIDGET
+                is WidgetListItem.SectionHeader -> 0
+                is WidgetListItem.WidgetCarousel -> 1
             }
         }
 
         override fun onCreateViewHolder(parent: ViewGroup, viewType: Int): RecyclerView.ViewHolder {
-            return if (viewType == TYPE_HEADER) {
-                val binding = ItemWidgetListSectionBinding.inflate(LayoutInflater.from(context), parent, false)
-                HeaderViewHolder(binding)
+            val inflater = LayoutInflater.from(context)
+            return if (viewType == 0) {
+                HeaderViewHolder(ItemWidgetListSectionBinding.inflate(inflater, parent, false))
             } else {
-                val binding = ItemWidgetListItemsHolderBinding.inflate(LayoutInflater.from(context), parent, false)
-                WidgetHolderViewHolder(binding)
+                WidgetHolderViewHolder(ItemWidgetListItemsHolderBinding.inflate(inflater, parent, false))
             }
         }
 
@@ -206,17 +228,15 @@ class SelectSearchBarWidgetActivity : SimpleActivity() {
                 holder.binding.widgetListItemsHolder.removeAllViews()
                 holder.binding.widgetListItemsScrollView.scrollX = 0
                 
-                item.widgets.forEachIndexed { index, widget ->
-                    val widgetPreview = ItemWidgetPreviewBinding.inflate(LayoutInflater.from(context))
+                for (widget in item.widgets) {
+                    val widgetPreview = ItemWidgetPreviewBinding.inflate(LayoutInflater.from(context), holder.binding.widgetListItemsHolder, false)
                     holder.binding.widgetListItemsHolder.addView(widgetPreview.root)
                     
                     widgetPreview.widgetTitle.text = widget.widgetTitle
-                    val sizeText = "${widget.widthCells} x ${widget.heightCells}"
-                    widgetPreview.widgetSize.text = sizeText
+                    widgetPreview.widgetSize.text = "${widget.widthCells} x ${widget.heightCells}"
                     
                     Glide.with(context)
                         .load(widget.widgetPreviewImage)
-                        .error(widget.appIcon)
                         .into(widgetPreview.widgetImage)
 
                     widgetPreview.root.setOnClickListener {

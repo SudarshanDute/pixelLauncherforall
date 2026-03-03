@@ -9,3 +9,4 @@ class App : FossifyApp() {
         DynamicColors.applyToActivitiesIfAvailable(this)
     }
 }
+

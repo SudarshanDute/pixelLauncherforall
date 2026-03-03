@@ -11,11 +11,19 @@
     <include
         android:id="@+id/all_apps_fragment"
         layout="@layout/all_apps_fragment"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:layout_alignParentBottom="true"
+        android:layout_marginTop="@dimen/drawer_top_margin"
         android:visibility="gone" />
 
     <include
         android:id="@+id/widgets_fragment"
         layout="@layout/widgets_fragment"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:layout_alignParentBottom="true"
+        android:layout_marginTop="@dimen/drawer_top_margin"
         android:visibility="gone" />
 
     <View
