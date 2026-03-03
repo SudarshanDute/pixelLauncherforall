@@ -4,9 +4,9 @@
 
 **PixelLauncherForAll** is a fork of Fossify Launcher,privacy-focused Android launcher designed to bring the sleek Pixel experience to everyone. Fast, highly customizable, and completely free of tracking.
 
-I wanted a pixel launcher and there seems to be no other option for me to create mine thats why I created this one.
-This launcher is made using AI most of the customisations perfomed by AI tools (Cause I am Noob and lazy to learn coading)
-But My Curiosity Made me Craete this launcher. You should definetly try this one if you want.
+I wanted a pixel launcher and there seemed to be no other option, so that's why I created this one. 
+This launcher is made using AI, and most of the customizations were performed by AI tools (because I'm a noob and lazy to learn coding). 
+But my curiosity made me create this launcher. You should definitely try this one if you want.
 
 ---
 
