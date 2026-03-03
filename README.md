@@ -1,45 +1,82 @@
-# Fossify Launcher
+# PixelForAll Launcher
 
 <img alt="Logo" src="graphics/icon.webp" width="120" />
 
-Fossify Launcher is your gateway to a fast, personalized, and privacy-first home screen experience.
-No ads, no bloat – just a smooth, efficient launcher designed to fit your unique style and
-preferences.
+**PixelForAll** is a premium, privacy-focused Android launcher designed to bring the sleek Pixel experience to everyone. Fast, highly customizable, and completely free of tracking.
 
-**🚀 LIGHTNING-FAST NAVIGATION:**  
-Navigate your device with speed and precision. Fossify Launcher is optimized to be responsive and
-fluid, giving you instant access to your favorite apps without lag.
+---
 
-**🎨 FULL CUSTOMIZATION:**  
-Tailor your home screen with dynamic themes, custom colors, and layouts. Personalize your launcher
-to match your style with easy-to-use tools that let you create a truly unique setup.
+## ✨ Key Features
 
-**🖼️ COMPLETE WIDGET SUPPORT:**  
-Integrate fully resizable widgets with ease. Whether you need clocks, calendars, or other handy
-tools, Fossify Launcher ensures they blend seamlessly into your home screen design.
+### 🎨 Material You Dynamic Theming
+Experience a home screen that breathes. PixelForAll fully integrates with Android 12+ dynamic color engine, adapting the entire UI palette to match your current wallpaper.
 
-**📱 NO UNWANTED CLUTTER:**  
-Effortlessly manage your apps by hiding or uninstalling them in just a few taps, keeping your home
-screen organized and clutter-free.
+### 🌫️ Real-time Wallpaper Blur
+Elevate your navigation with a premium blur effect. The app drawer features a smooth, high-performance wallpaper blur that activates instantly with silky transitions.
 
-**🔒 PRIVACY AND SECURITY:**  
-Your privacy is at the heart of Fossify Launcher. With no internet access and no intrusive
-permissions, your data stays with you. No tracking, no ads – just a launcher built to respect your
-privacy.
+### 📱 Pixel-Inspired Experience
+Get the best of both worlds: the minimalist aesthetic of Pixel devices combined with the power of open-source customization.
+- **Search Widget**: Fully integrated Google-style search bar.
+- **At a Glance**: Stay informed with a modern, clean widget layout.
+- **Fluid Animations**: Optimized for a responsive and lag-free feel.
 
-**🌐 OPEN-SOURCE ASSURANCE:**  
-Fossify Launcher is built on an open-source foundation, allowing you to review our code on GitHub,
-fostering trust and a community committed to privacy.
+### 🔒 Privacy First by Design
+Your data stays where it belongs: on your device.
+- **No Internet Access**: PixelForAll doesn't even ask for internet permissions.
+- **No Ads, No Bloat**: Just a clean launcher that respects your space.
+- **Open Source**: Review everything on GitHub.
 
-Find your balance of speed, customization, and privacy with Fossify Launcher.
+---
 
-➡️ Explore more Fossify apps: https://www.fossify.org<br>
-➡️ Open-Source Code: https://www.github.com/FossifyOrg<br>
-➡️ Join the community on Reddit: https://www.reddit.com/r/Fossify<br>
-➡️ Connect on Telegram: https://t.me/Fossify
+## 🚀 Getting Started
+
+### 📦 Download
+<a href='https://play.google.com/store/apps/details?id=org.fossify.home'><img alt='Get it on Google Play' src='https://play.google.com/intl/en_us/badges/static/images/badges/en_badge_web_generic.png' height=80/></a> 
+<a href="https://f-droid.org/en/packages/org.fossify.home/"><img src="https://fdroid.gitlab.io/artwork/badge/get-it-on-en.svg" alt="Get it on F-Droid" height=80/></a> 
+<a href="https://apt.izzysoft.de/fdroid/index/apk/org.fossify.home"><img src="https://gitlab.com/IzzyOnDroid/repo/-/raw/master/assets/IzzyOnDroid.png" alt="Get it on IzzyOnDroid" height=80/></a>
+
+### ➡️ Quick Links
+- **Source Code**: [GitHub Repository](https://github.com/SudarshanDute/PixelForAll)
+- **Based on**: [Fossify Launcher](https://github.com/FossifyOrg/Launcher)
+- **Community**: [Reddit](https://www.reddit.com/r/Fossify) | [Telegram](https://t.me/Fossify)
+
+---
+
+## 🛠️ Building from Source
+
+PixelForAll is built using modern Android standards (Kotlin & Jetpack Compose). To build it yourself:
+
+1. **Clone the repository**:
+   ```bash
+   git clone https://github.com/SudarshanDute/PixelForAll.git
+   cd PixelForAll
+   ```
+
+2. **Setup Environment**:
+   - Open the project in **Android Studio (Ladybug or newer)**.
+   - Wait for Gradle to sync dependencies.
+
+3. **Build and Run**:
+   - Click the **Run** button or use the terminal:
+     ```bash
+     ./gradlew assembleDebug
+     ```
+
+---
 
 <div align="center">
-<img alt="App image" src="fastlane/metadata/android/en-US/images/phoneScreenshots/1_en-US.png" width="30%">
-<img alt="App image" src="fastlane/metadata/android/en-US/images/phoneScreenshots/2_en-US.png" width="30%">
-<img alt="App image" src="fastlane/metadata/android/en-US/images/phoneScreenshots/3_en-US.png" width="30%">
+  <h3>Screenshots</h3>
+  <img alt="Home Screen" src="fastlane/metadata/android/en-US/images/phoneScreenshots/1_en-US.png" width="23%">
+  <img alt="App Drawer with Blur" src="fastlane/metadata/android/en-US/images/phoneScreenshots/2_en-US.png" width="23%">
+  <img alt="Settings" src="fastlane/metadata/android/en-US/images/phoneScreenshots/3_en-US.png" width="23%">
+  <img alt="Customization" src="fastlane/metadata/android/en-US/images/phoneScreenshots/4_en-US.png" width="23%">
 </div>
+
+---
+
+## 🤝 Contributing
+Contributions are welcome! Whether it's reporting bugs, suggesting features, or submitting pull requests, everything helps. Check out [CONTRIBUTING.md](CONTRIBUTING.md) for details.
+
+## 📜 License
+PixelForAll is licensed under the [GPLv3 License](LICENSE).
+
