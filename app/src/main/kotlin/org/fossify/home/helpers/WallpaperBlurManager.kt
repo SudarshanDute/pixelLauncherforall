@@ -15,11 +15,14 @@ object WallpaperBlurManager {
             // Ensure the wallpaper is shown behind the activity
             addFlags(WindowManager.LayoutParams.FLAG_SHOW_WALLPAPER)
             
-            // Allow content to draw behind system bars to ensure the blur covers the whole screen
-            addFlags(WindowManager.LayoutParams.FLAG_LAYOUT_NO_LIMITS)
-            
-            // Ensure hardware acceleration is enabled
-            addFlags(WindowManager.LayoutParams.FLAG_HARDWARE_ACCELERATED)
+            // On Android 12+, explicitly enable the blur behind flag early to prevent flickering
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+                addFlags(WindowManager.LayoutParams.FLAG_BLUR_BEHIND)
+                
+                // Warm-up call: some OEMs (like OnePlus) need an initial radius update 
+                // to correctly initialize the window blur compositor layer.
+                setBlurRadius(activity, 0)
+            }
             
             // Allow drawing behind system bars
             WindowCompat.setDecorFitsSystemWindows(this, false)
@@ -27,7 +30,8 @@ object WallpaperBlurManager {
             // Set window background to transparent to allow wallpaper to be visible
             setBackgroundDrawable(ColorDrawable(Color.TRANSPARENT))
             
-            // Use translucent format to ensure blur effects can be seen
+            // Use translucent format to ensure blur effects can be seen.
+            // On some devices, this MUST be set for FLAG_BLUR_BEHIND to trigger.
             setFormat(PixelFormat.TRANSLUCENT)
         }
     }
@@ -36,27 +40,48 @@ object WallpaperBlurManager {
      * Applies the blur. MUST be called on the main thread synchronously.
      */
     fun setBlurRadius(activity: Activity, radius: Int) {
+        // Fallback for versions before Android 12 (API 31) is handled via background alpha in fragments
         if (Build.VERSION.SDK_INT < Build.VERSION_CODES.S) return
 
         activity.window.apply {
             try {
+                /**
+                 * NOTE: We are bypassing the explicit isCrossWindowBlurEnabled check here because
+                 * on some OEM devices (like OnePlus/OxygenOS), this can return false even when
+                 * blurs are supported/working, or during state transitions.
+                 * We wrap in try-catch to avoid crashes on unsupported hardware.
+                 */
+                
                 val params = attributes
                 params.blurBehindRadius = radius
                 
-                // Set the blur behind flag on the params object
-                if (radius > 0) {
-                    params.flags = params.flags or WindowManager.LayoutParams.FLAG_BLUR_BEHIND
-                } else {
-                    params.flags = params.flags and WindowManager.LayoutParams.FLAG_BLUR_BEHIND.inv()
-                }
-                
-                // Update the window attributes to apply both radius and flags synchronously
-                attributes = params
-                
-                // Also blurs the area behind the window background drawable
+                // Some OEMs require setBackgroundBlurRadius specifically
                 setBackgroundBlurRadius(radius)
                 
-                // Force the compositor to pick up the change immediately
+                // Directly manipulate flags and attributes for better consistency across versions
+                if (radius > 0) {
+                    addFlags(WindowManager.LayoutParams.FLAG_BLUR_BEHIND)
+                    // Voodoo Fix: Add a tiny amount of dimming. On some OEMs (OnePlus/Oppo), 
+                    // this forces the window manager to create the necessary blur layers.
+                    addFlags(WindowManager.LayoutParams.FLAG_DIM_BEHIND)
+                    params.dimAmount = 0.01f
+                    
+                    // Voodoo Fix: Setting alpha slightly below 1.0 can trigger transparency 
+                    // compositions that enable blur on problematic hardware.
+                    params.alpha = 0.99f
+                    
+                    // Ensure the window is translucent
+                    params.format = android.graphics.PixelFormat.TRANSLUCENT
+                } else {
+                    clearFlags(WindowManager.LayoutParams.FLAG_BLUR_BEHIND)
+                    clearFlags(WindowManager.LayoutParams.FLAG_DIM_BEHIND)
+                    params.dimAmount = 0f
+                    params.alpha = 1.0f
+                }
+                
+                attributes = params
+                
+                // Critical: force the compositor to pick up changes immediately
                 decorView.invalidate()
             } catch (e: Exception) {
                 // Ignore failures
