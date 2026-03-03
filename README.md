@@ -1,6 +1,6 @@
 # PixelLauncherForAll
 
-<img alt="Logo" src="graphics/PixelLauncherForAll.webp" width="120" />
+<img alt="Logo" src="graphics/PixelForAll.webp" width="120" />
 
 **PixelLauncherForAll** is a fork of Fossify Launcher,privacy-focused Android launcher designed to bring the sleek Pixel experience to everyone. Fast, highly customizable, and completely free of tracking.
 
