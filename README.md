@@ -1,4 +1,4 @@
-# PixelForAll Launcher
+# PixelLauncherForAll
 
 <img alt="Logo" src="graphics/PixelForAll.webp" width="120" />
 
